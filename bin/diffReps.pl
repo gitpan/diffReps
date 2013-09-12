@@ -16,7 +16,7 @@
 
 use 5.006;
 use strict;
-our $VERSION = '1.55.2';
+our $VERSION = '1.55.3';
 use Getopt::Long;
 use MyBioinfo::Common;
 use MyBioinfo::Common qw(mean_r mad);
@@ -448,26 +448,34 @@ $regList->gen_header($hrep);	# result table header line.
 $regList->output($global_data, $hrep);	# dump all found regions after P-value adjustment.
 close $hrep;
 
-# Create a new forkmanager for clean up and additional stuffs.
-$pm = new Parallel::ForkManager($nproc);
 
-# Step4: Clean up - delete all temporary chromosome files.
-foreach my $r( (@tr_srbed, @co_srbed, @btr_srbed, @bco_srbed) ){
-	$pm->start and next;
-	$r->del_all_chrfiles();
-	$pm->finish;
-}
-$pm->wait_all_children;
-
-# Step5: Annotate differential sites.
+# Step4: Annotate differential sites.
 unless($noanno or $gname eq ''){
 	`region_analysis.pl -i $report -r -d refseq -g $gname`;
 }
 
-# Step6: Look for hotspots.
+# Step5: Look for hotspots.
 unless($nohs){
 	my $hotspot = $report . '.hotspot';
 	`findHotspots.pl -d $report -o $hotspot`;
+}
+
+END {
+	# Clean up - delete all temporary chromosome files.
+	if(defined @tr_srbed) {
+		# Create a new forkmanager for clean up and additional stuffs.
+		if(defined $nproc) {
+			$pm = new Parallel::ForkManager($nproc);
+		} else {
+			$pm = new Parallel::ForkManager(1);
+		}
+		foreach my $r( (@tr_srbed, @co_srbed, @btr_srbed, @bco_srbed) ) {
+			$pm->start and next;
+			$r->del_all_chrfiles();
+			$pm->finish;
+		}
+		$pm->wait_all_children;
+	}
 }
 
 ######### The END ##########

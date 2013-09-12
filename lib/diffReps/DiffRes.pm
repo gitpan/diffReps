@@ -519,12 +519,13 @@ __END__
 =head1 NAME
 
 diffReps::DiffRes - class to store and manipulate differential sites.
+
 diffReps::ClustList - class to deal with a cluster of differential sites(hotspots).
 
 =head1 SYNOPSIS
 
-  diffRes = new diffReps::DiffRes;
-  clustList = new diffReps::ClustList;
+  my $diffRes = new diffReps::DiffRes;
+  my $clustList = new diffReps::ClustList;
 
 =head1 DESCRIPTION
 
@@ -532,7 +533,7 @@ Classes and methods to read differential sites from text files and manipulate th
 
 =head2 EXPORT
 
-None by default.
+None. This is OO designed.
 
 
 
@@ -540,21 +541,20 @@ None by default.
 
 diffReps::ChromaModSite
 
-If you have a mailing list set up for your module, mention it here.
+Mailing list: https://groups.google.com/forum/#!forum/diffreps-discuss
 
-If you have a web site set up for your module, mention it here.
+Web site: https://code.google.com/p/diffreps/
+
 
 =head1 AUTHOR
 
-Li Shen, E<lt>li.shen@mssm.eduE<gt>
+Li Shen, E<lt>shenli.sam@gmail.comE<gt>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2011-2012 by Li Shen
+Copyright (C) 2010-2013 by Li Shen
 
-This library is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself, either Perl version 5.8.8 or,
-at your option, any later version of Perl 5 you may have available.
+diffReps goes under GNU GPL v3: http://www.gnu.org/licenses/gpl.html
 
 
 =cut

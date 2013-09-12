@@ -173,7 +173,7 @@ sub del_file{
 	my $self = shift;
 	if(defined $self->{file_name}){
 		my $fn = $self->{file_name};
-		`rm -f $fn`;
+		unlink $fn or warn "Cannot delete file $fn: $!\n";
 	}
 }
 
@@ -208,18 +208,19 @@ MyShortRead::ChromBed - A perl class to deal with single chromosome BED file.
   MyShortRead::MyShortRead
   MyShortRead::SRBed
 
+Mailing list: https://groups.google.com/forum/#!forum/diffreps-discuss
+
+Web site: https://code.google.com/p/diffreps/
 
 =head1 AUTHOR
 
-Li Shen, E<lt>li.shen@mssm.eduE<gt>
+Li Shen, E<lt>shenli.sam@gmail.comE<gt>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2010 by Li Shen
+Copyright (C) 2010-2013 by Li Shen
 
-This library is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself, either Perl version 5.8.8 or,
-at your option, any later version of Perl 5 you may have available.
+diffReps goes under GNU GPL v3: http://www.gnu.org/licenses/gpl.html
 
 
 =cut

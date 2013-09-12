@@ -768,31 +768,32 @@ MyBioinfo::Common - Commonly used Perl subroutines for my bioinformatics work.
 =head1 SYNOPSIS
 
   use MyBioinfo::Common;
+  or
+  use MyBioinfo::Common qw(mean_r mad padjBH raw_sum2 raw_sum_mean raw_sum_var MchooseN BH_fdr raw_sum_dir raw_sum nb_pval_v2 nb_pval raw_mean_dir raw_mean nb_stat var fold_change chi_stat readnamelist readnamewithinfolist array2hash max min sum mean median log2 log10 read_norm2 rescale_cutoff read_cutoff isAboveCutoff rescale_norm_max rescale_norm_sum1 is_all_zero fprecision unique)
 
-  nb_stat
-  fold_change
-  chi_stat
-  readnamelist
-  readnamewithinfolist
-  array2hash
-  max
-  min
-  sum
-  mean
-  median
-  log2
-  read_norm2
-  rescale_norm_max
-  rescale_norm_sum1
-  is_all_zero
-  fprecision
-  read_cutoff
+  my $s = &nb_stat($ref_q, $q_size, $start_pos, $num_rep, $epsilon, $step, $cur_pos);
+  my $fc = &fold_change($treatment_val, $control_val);
+  my $s = &chi_stat($obs, $n, $prob);
+  &readnamelist($filename, \@array);
+  &readnamewithinfolist($filename, \@hash);
+  &array2hash(\@ref_array, \@ref_hash);
+  my $m = &max(@array);
+  my $m = &min(@array);
+  my $s = &sum(@array);
+  my $m = &mean(@array);
+  my $m = &median(@array);
+  my $v = &log2($m);
+  &read_norm2($filename, \@treatment, \@control);
+  &rescale_norm_max(\@normalization, $max_norm);
+  &rescale_norm_sum1(\@normalization, $sum_norm);
+  my $boolean = &is_all_zero(\@array);
+  my @formatted = &fprecision($n_after_decimal, @array);
+  &read_cutoff($filename, \@treatment, \@control);
 
 =head1 DESCRIPTION
 
-  Just some small functions that I found to be useful for my bioinformatics
-  work but could not find in Perl release. I put them here whenever I thought
-  about sth. It's just a start...
+  Some convenient functions for my bioinformatics work. 
+
 
 =head2 EXPORT
 
@@ -816,19 +817,19 @@ MyBioinfo::Common - Commonly used Perl subroutines for my bioinformatics work.
 
 =head1 SEE ALSO
 
-  Nothing else.
+MyBioinfo::Math
+
+MyBioinfo::NBTest
 
 =head1 AUTHOR
 
-Li Shen, E<lt>li.shen@mssm.eduE<gt>
+Li Shen, E<lt>shenli.sam@gmail.comE<gt>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2010 by Li Shen
+Copyright (C) 2010-2013 by Li Shen
 
-This library is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself, either Perl version 5.6.0 or,
-at your option, any later version of Perl 5 you may have available.
+diffReps goes under GNU GPL v3: http://www.gnu.org/licenses/gpl.html
 
 
 =cut

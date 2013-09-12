@@ -36,7 +36,7 @@ __END__
 
 =head1 NAME
 
-PJ::Database::Root - Perl extension for genomic annotations
+PJ::Database::Root - Perl module for genomic annotations
 
 =head1 SYNOPSIS
 
@@ -70,16 +70,22 @@ None by default.
 
 =head1 SEE ALSO
 
-diffReps - http://code.google.com/p/diffreps/
+PJ::Genome
+
+Mailing list: https://groups.google.com/forum/#!forum/diffreps-discuss
+
+Web site: https://code.google.com/p/diffreps/
 
 
 =head1 AUTHOR
 
-Li Shen, E<lt>li.shen@mssm.eduE<gt>
+Li Shen, E<lt>shenli.sam@gmail.comE<gt>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2012 by Li Shen
+Copyright (C) 2010-2013 by Li Shen
+
+diffReps goes under GNU GPL v3: http://www.gnu.org/licenses/gpl.html
 
 
 

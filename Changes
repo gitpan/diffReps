@@ -1,6 +1,17 @@
 Revision history for diffReps.
 
 
+1.55.3 Thu Sep 12 2013
+    - diffReps will now remove intermediate files even if it dies from 
+      exceptions.
+    - The POD of diffReps modules are re-written so that they are more 
+      informative.
+    - Use Perl built-in functions to delete intermediate files instead of 
+      external "rm" in the main program, making it more friendly to Windows 
+      users.
+    - Corrected some version numbers.
+
+
 1.55.2 Sat Aug 31 2013
     - Corrected some mistakes in Makefile.PL.
     - Made the program aware of the number of required replicates when nb and 

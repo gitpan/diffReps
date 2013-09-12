@@ -129,15 +129,16 @@ MyBioinfo::Math - Math routines used for bioinformatics.
 
   use MyBioinfo::Common qw( gtest_gof chisqtest_gof );
 
-  gtest_gof
-  chisqtest_gof
+  my ($stat, $dof, $pval) = &gtest_gof(\@numbers);  # Goodness-of-fit test by G-test.
+  my ($stat, $dof, $pval) = &gtest_gof(\@numbers, \@prob);  # Give a vector of probabilities.
+  my ($stat, $dof, $pval) = &chisqtest_gof(\@numbers);  # Goodness-of-fit test by Chi-square test.
+  my ($stat, $dof, $pval) = &chisqtest_gof(\@numbers, \@prob);  # Give a vector of probabilities.
 
 
 =head1 DESCRIPTION
 
-  Just some small functions that I found to be useful for my bioinformatics
-  work but could not find in Perl release. I put them here whenever I thought
-  about sth. It's just a start...
+  Some convenient math functions that are used in diffReps. 
+
 
 =head2 EXPORT
 
@@ -146,18 +147,17 @@ MyBioinfo::Math - Math routines used for bioinformatics.
 =head1 SEE ALSO
 
   MyBioinfo::Common
+  MyBioinfo::NBTest
 
 =head1 AUTHOR
 
-Li Shen, E<lt>li.shen@mssm.eduE<gt>
+Li Shen, E<lt>shenli.sam@gmail.comE<gt>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2012 by Li Shen
+Copyright (C) 2010-2013 by Li Shen
 
-This library is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself, either Perl version 5.6.0 or,
-at your option, any later version of Perl 5 you may have available.
+diffReps goes under GNU GPL v3: http://www.gnu.org/licenses/gpl.html
 
 
 =cut

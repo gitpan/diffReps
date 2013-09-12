@@ -164,9 +164,9 @@ PJ::Genome - Module for convenient access to genome statistics, such as chromoso
 
   use PJ::Genome qw( get_gz get_effgz get_chrsz );
 
-  &get_gz(genome_name);	# genome size.
-  &get_effgz(genome_name);	# effective genome size.
-  &get_chrsz(genome_name);	# chromosome lengths in a reference to hash table.
+  my $genome_size = &get_gz($genome_name);  # genome size.
+  my $eff_genome_size = &get_effgz($genome_name);  # effective genome size.
+  my $ref_hash_chrom_size = &get_chrsz($genome_name);  # chromosome lengths in a reference to hash table.
 
 
 =head1 DESCRIPTION
@@ -181,19 +181,22 @@ PJ::Genome - Module for convenient access to genome statistics, such as chromoso
 
 =head1 SEE ALSO
 
-  MyBioinfo::Common
+MyBioinfo::Common
+
+Mailing list: https://groups.google.com/forum/#!forum/diffreps-discuss
+
+Web site: https://code.google.com/p/diffreps/
+
 
 =head1 AUTHOR
 
-Li Shen, E<lt>li.shen@mssm.eduE<gt>
+Li Shen, E<lt>shenli.sam@gmail.comE<gt>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2012 by Li Shen
+Copyright (C) 2010-2013 by Li Shen
 
-This library is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself, either Perl version 5.6.0 or,
-at your option, any later version of Perl 5 you may have available.
+diffReps goes under GNU GPL v3: http://www.gnu.org/licenses/gpl.html
 
 
 =cut

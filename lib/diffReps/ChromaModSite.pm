@@ -1,6 +1,234 @@
 use 5.006;
 our $VERSION = '1.122';
 
+# Class for a chromatin modification site consisting consecutive significant windows.
+package diffReps::ChromaModSite;
+use strict;
+use MyBioinfo::Common;
+use MyShortRead::SRBed;
+
+our @ISA = qw(diffReps::SlideWindow);	# Inherited from 'SlideWindow'.
+
+# Constructor.
+sub new{
+	my $class = shift;
+	my $self = {
+		chrom => undef,
+		start => undef,
+		end => undef,
+		siteCenter => undef,
+		retrieved => 0,		# boolean tag: whether count data have been retrieved?
+		tr_cnt => [],		# region normalized treatment counts.
+		co_cnt => [],		# region normalized control counts.
+		tr_cnt_ => [],		# normalized treatment counts using #reads.
+		co_cnt_ => [],		# normalized control counts using #reads.
+		btr_cnt => [],		# normalized background treatment counts.
+		bco_cnt => [],		# normalized background control counts.
+		#trEnr => undef,		# treatment enrichment vs. background.
+		#coEnr => undef,		# control enrichment vs. background.
+		rsumTr => undef,	# sum of raw treatment counts.
+		rsumCo => undef,	# sum of raw control counts.
+		dirn => undef,		# change direction: 'Up' or 'Down'.
+		logFC => undef,		# log2 fold change.
+		pval => undef,		# P-value.
+		padj => undef,		# adjusted P-value.
+		winSta => undef,	# best window start.
+		#winTr => [],		# window normalized treatment counts.
+		#winCo => [],		# window normalized control counts.
+		winFC => undef,		# window log2 fold change.
+		winP => undef,		# window P-value.
+		winQ => undef		# window adjusted P-value.
+	};
+	bless $self, $class;
+	return $self;
+}
+
+# Copy member data into an anonymous hash table.
+sub dcopy{
+	my $self = shift;
+	my $new = {};
+	%{$new} = %{$self};
+	# Deep copy array members that are array variables.
+	$new->{tr_cnt} = []; @{$new->{tr_cnt}} = @{$self->{tr_cnt}};
+	$new->{co_cnt} = []; @{$new->{co_cnt}} = @{$self->{co_cnt}};
+	$new->{tr_cnt_} = []; @{$new->{tr_cnt_}} = @{$self->{tr_cnt_}};
+	$new->{co_cnt_} = []; @{$new->{co_cnt_}} = @{$self->{co_cnt_}};
+	$new->{btr_cnt} = []; @{$new->{btr_cnt}} = @{$self->{btr_cnt}};
+	$new->{bco_cnt} = []; @{$new->{bco_cnt}} = @{$self->{bco_cnt}};
+	#$new->{winTr} = []; @{$new->{winTr}} = @{$self->{winTr}};
+	#$new->{winCo} = []; @{$new->{winCo}} = @{$self->{winCo}};
+	bless $new, 'diffReps::ChromaModSite';
+	return $new;
+}
+
+# Initialize a region by a significant window.
+sub init{
+	my($self,$gdt,$rwin) = @_;
+	$self->{chrom} = $rwin->{chrom};
+	$self->{start} = $rwin->{winN}*$gdt->{step} + 1;
+	$self->{end} = $rwin->{winN}*$gdt->{step} + $gdt->{winSize};
+	$self->{siteCenter} = ($self->{start} + $self->{end}) /2;
+	$self->{retrieved} = 1;
+	@{$self->{tr_cnt}} = @{$rwin->{tr_cnt}};
+	@{$self->{co_cnt}} = @{$rwin->{co_cnt}};
+	@{$self->{tr_cnt_}} = @{$rwin->{tr_cnt_}};
+	@{$self->{co_cnt_}} = @{$rwin->{co_cnt_}};
+	@{$self->{btr_cnt}} = @{$rwin->{btr_cnt}};
+	@{$self->{bco_cnt}} = @{$rwin->{bco_cnt}};
+	$self->{rsumTr} = $rwin->{rsumTr};
+	$self->{rsumCo} = $rwin->{rsumCo};
+	$self->{dirn} = $rwin->{dirn};
+	$self->{logFC} = $rwin->{logFC};
+	$self->{pval} = $rwin->{pval};
+	$self->{winSta} = $self->{start};
+	#@{$self->{winTr}} = @{$rwin->{tr_cnt}};
+	#@{$self->{winCo}} = @{$rwin->{co_cnt}};
+	$self->{winFC} = $rwin->{logFC};
+	$self->{winP} = $rwin->{pval};
+}
+
+# Expand the genomic coordinates. Replace best window if necessary.
+# Do not retrieve counts and sums to save some computation.
+sub expand{
+	my($self,$gdt,$rwin) = @_;
+	$self->{end} = $rwin->{winN}*$gdt->{step} + $gdt->{winSize};	# new region end.
+	$self->{siteCenter} = ($self->{start} + $self->{end}) /2;
+	# Invalidate previous diff results.
+	$self->reset_content(1);	# reset everything but keep direction.
+#	$self->{tr_cnt} = [];
+#	$self->{co_cnt} = [];
+#	$self->{rsumTr} = undef;
+#	$self->{rsumCo} = undef;
+#	$self->{logFC} = undef;
+	# Replace best window if necessary.
+    if($rwin->{pval} < $self->{winP}){
+    	$self->{winSta} = $rwin->{winN}*$gdt->{step} + 1;
+    	#@{$self->{winTr}} = @{$rwin->{tr_cnt}};
+    	#@{$self->{winCo}} = @{$rwin->{co_cnt}};
+    	$self->{winFC} = $rwin->{logFC};
+    	$self->{winP} = $rwin->{pval};
+    }
+}
+
+# Print a formatted record of the current region. Do nothing if the P-val is not defined.
+sub print_reg{
+	my($self,$gdt,$h) = @_;
+    if(defined $self->{pval}){
+    	# Concatenate treatment and control counts for output.
+    	my @tr_cnt_fmt = fprecision(2, @{$self->{tr_cnt}});
+    	my @co_cnt_fmt = fprecision(2, @{$self->{co_cnt}});
+    	my $tr_cnt_str = join(';', @tr_cnt_fmt);
+    	my $co_cnt_str = join(';', @co_cnt_fmt);
+		my($tr_bkg_enr, $co_bkg_enr);
+		if($gdt->{bkgEnr}){
+			my $btr_m = mean(@{$self->{btr_cnt}});
+			my $bco_m = mean(@{$self->{bco_cnt}});
+			$tr_bkg_enr = $btr_m > 0? fprecision(2, mean(@{$self->{tr_cnt_}}) / $btr_m) : INFINITE;
+			$co_bkg_enr = $bco_m > 0? fprecision(2, mean(@{$self->{co_cnt_}}) / $bco_m) : INFINITE;
+		}else{
+			$tr_bkg_enr = 'NA';
+			$co_bkg_enr = 'NA';
+		}
+    	# Output: chrom,start,end,length,(treatment read count),(control read count),direction,logFC,pval,padj,
+    	# (window start),(window end),(window logFC),(window pval),(window padj).
+    	print $h join("\t", ($self->{chrom},
+        	$self->{start}, $self->{end}, $self->{end}-$self->{start}+1,	# region coordinates.
+        	$tr_cnt_str, $co_cnt_str,	# formatted read counts.
+			fprecision(2, &mean(@{$self->{tr_cnt}})), fprecision(2, &mean(@{$self->{co_cnt}})),	# avg read count.
+			$tr_bkg_enr, $co_bkg_enr,	# enrichment vs. background.
+        	$self->{dirn}, fprecision(2,$self->{logFC}), # change direction and logFC.
+    		$self->{pval}, $self->{padj},	# diff analysis info.
+        	$self->{winSta}, $self->{winSta}+$gdt->{winSize}-1,	# best window coordinates.
+        	fprecision(2,$self->{winFC}), 
+    		$self->{winP}, $self->{winQ})), "\n";	# best window diff info.
+    }
+}
+
+# Do we need to perform stat test for the region?
+# If the region contains only one window, this is already done.
+sub needStat{
+	my $self = shift;
+	return (defined($self->{winP}) && !defined($self->{pval}));
+}
+
+# Retrieve normalized read counts for the region. Override parent function.
+sub retrieve_norm_cnt{
+	my($self,$gdt) = @_;
+	my @atr_cnt;	# array treatment counts.
+	my $i = 0;	# iterator for normalization constants.
+	foreach my $b(@{$gdt->{bedTr}}) {
+		push @atr_cnt, ($b->get_region_count($self->{chrom}, $self->{start}, $self->{end}) 
+			/ $gdt->{normTr}[$i++]);
+	}
+	my @aco_cnt;	# array control counts.
+	$i = 0;
+	foreach my $b(@{$gdt->{bedCo}}) {
+		push @aco_cnt, ($b->get_region_count($self->{chrom}, $self->{start}, $self->{end}) 
+			/ $gdt->{normCo}[$i++]);
+	}
+	@{$self->{tr_cnt}} = @atr_cnt;
+	@{$self->{co_cnt}} = @aco_cnt;
+	# Retrieve norm count for background if needed.
+	if($gdt->{bkgEnr}){
+		my @atr_cnt_;	# array treatment counts.
+		$i = 0;	# iterator for normalization constants.
+		foreach my $b(@{$gdt->{bedTr}}) {
+			push @atr_cnt_, ($b->get_region_count($self->{chrom}, $self->{start}, $self->{end}) / $gdt->{normTr_}->[$i++]);
+		}
+		@{$self->{tr_cnt_}} = @atr_cnt_;
+		my @aco_cnt_;	# array treatment counts.
+		$i = 0;	# iterator for normalization constants.
+		foreach my $b(@{$gdt->{bedCo}}) {
+			push @aco_cnt_, ($b->get_region_count($self->{chrom}, $self->{start}, $self->{end}) / $gdt->{normCo_}->[$i++]);
+		}
+		@{$self->{co_cnt_}} = @aco_cnt_;
+		if(@{$gdt->{bedBtr}}){
+			my @abtr_cnt;	# array background treatment counts.
+			$i = 0;	# iterator for normalization constants.
+			foreach my $b(@{$gdt->{bedBtr}}) {
+				push @abtr_cnt, ($b->get_region_count($self->{chrom}, $self->{start}, $self->{end}) / $gdt->{normBtr}->[$i++]);
+			}
+			@{$self->{btr_cnt}} = @abtr_cnt;
+		}
+		if(@{$gdt->{bedBco}}){
+			my @abco_cnt;	# array background treatment counts.
+			$i = 0;	# iterator for normalization constants.
+			foreach my $b(@{$gdt->{bedBco}}) {
+				push @abco_cnt, ($b->get_region_count($self->{chrom}, $self->{start}, $self->{end}) / $gdt->{normBco}->[$i++]);
+			}
+			@{$self->{bco_cnt}} = @abco_cnt;
+		}
+		if(@{$self->{btr_cnt}} == 0){
+			@{$self->{btr_cnt}} = @{$self->{bco_cnt}};
+		}
+		if(@{$self->{bco_cnt}} == 0){
+			@{$self->{bco_cnt}} = @{$self->{btr_cnt}};
+		}
+	}
+}
+
+# Retrieve sum of raw read counts for the region. Override parent function.
+sub retrieve_raw_sum{
+	my($self,$gdt) = @_;
+	$self->{rsumTr} = 0;
+	foreach my $b(@{$gdt->{bedTr}}) {
+		$self->{rsumTr} += $b->get_region_count($self->{chrom}, $self->{start}, $self->{end});
+	}
+	$self->{rsumCo} = 0;
+	foreach my $b(@{$gdt->{bedCo}}) {
+		$self->{rsumCo} += $b->get_region_count($self->{chrom}, $self->{start}, $self->{end});
+	}
+}
+
+# Determine whether a window is within gap.
+sub isWithinGap{
+	my($self,$gdt,$rwin) = @_;
+	return 0 if !defined $self->{chrom};
+	my $winSta = $rwin->{winN}*$gdt->{step}+1;
+	return ($winSta - $self->{end}-1 <= $gdt->{gap} and $rwin->{dirn} eq $self->{dirn});
+}
+
+
 # Class for a sliding window of fixed size.
 package diffReps::SlideWindow;
 
@@ -388,233 +616,6 @@ sub raw_sum_var{
 ###################################
 
 
-# Class for a chromatin modification site consisting consecutive significant windows.
-package diffReps::ChromaModSite;
-use strict;
-use MyBioinfo::Common;
-use MyShortRead::SRBed;
-
-our @ISA = qw(diffReps::SlideWindow);	# Inherited from 'SlideWindow'.
-
-# Constructor.
-sub new{
-	my $class = shift;
-	my $self = {
-		chrom => undef,
-		start => undef,
-		end => undef,
-		siteCenter => undef,
-		retrieved => 0,		# boolean tag: whether count data have been retrieved?
-		tr_cnt => [],		# region normalized treatment counts.
-		co_cnt => [],		# region normalized control counts.
-		tr_cnt_ => [],		# normalized treatment counts using #reads.
-		co_cnt_ => [],		# normalized control counts using #reads.
-		btr_cnt => [],		# normalized background treatment counts.
-		bco_cnt => [],		# normalized background control counts.
-		#trEnr => undef,		# treatment enrichment vs. background.
-		#coEnr => undef,		# control enrichment vs. background.
-		rsumTr => undef,	# sum of raw treatment counts.
-		rsumCo => undef,	# sum of raw control counts.
-		dirn => undef,		# change direction: 'Up' or 'Down'.
-		logFC => undef,		# log2 fold change.
-		pval => undef,		# P-value.
-		padj => undef,		# adjusted P-value.
-		winSta => undef,	# best window start.
-		#winTr => [],		# window normalized treatment counts.
-		#winCo => [],		# window normalized control counts.
-		winFC => undef,		# window log2 fold change.
-		winP => undef,		# window P-value.
-		winQ => undef		# window adjusted P-value.
-	};
-	bless $self, $class;
-	return $self;
-}
-
-# Copy member data into an anonymous hash table.
-sub dcopy{
-	my $self = shift;
-	my $new = {};
-	%{$new} = %{$self};
-	# Deep copy array members that are array variables.
-	$new->{tr_cnt} = []; @{$new->{tr_cnt}} = @{$self->{tr_cnt}};
-	$new->{co_cnt} = []; @{$new->{co_cnt}} = @{$self->{co_cnt}};
-	$new->{tr_cnt_} = []; @{$new->{tr_cnt_}} = @{$self->{tr_cnt_}};
-	$new->{co_cnt_} = []; @{$new->{co_cnt_}} = @{$self->{co_cnt_}};
-	$new->{btr_cnt} = []; @{$new->{btr_cnt}} = @{$self->{btr_cnt}};
-	$new->{bco_cnt} = []; @{$new->{bco_cnt}} = @{$self->{bco_cnt}};
-	#$new->{winTr} = []; @{$new->{winTr}} = @{$self->{winTr}};
-	#$new->{winCo} = []; @{$new->{winCo}} = @{$self->{winCo}};
-	bless $new, 'diffReps::ChromaModSite';
-	return $new;
-}
-
-# Initialize a region by a significant window.
-sub init{
-	my($self,$gdt,$rwin) = @_;
-	$self->{chrom} = $rwin->{chrom};
-	$self->{start} = $rwin->{winN}*$gdt->{step} + 1;
-	$self->{end} = $rwin->{winN}*$gdt->{step} + $gdt->{winSize};
-	$self->{siteCenter} = ($self->{start} + $self->{end}) /2;
-	$self->{retrieved} = 1;
-	@{$self->{tr_cnt}} = @{$rwin->{tr_cnt}};
-	@{$self->{co_cnt}} = @{$rwin->{co_cnt}};
-	@{$self->{tr_cnt_}} = @{$rwin->{tr_cnt_}};
-	@{$self->{co_cnt_}} = @{$rwin->{co_cnt_}};
-	@{$self->{btr_cnt}} = @{$rwin->{btr_cnt}};
-	@{$self->{bco_cnt}} = @{$rwin->{bco_cnt}};
-	$self->{rsumTr} = $rwin->{rsumTr};
-	$self->{rsumCo} = $rwin->{rsumCo};
-	$self->{dirn} = $rwin->{dirn};
-	$self->{logFC} = $rwin->{logFC};
-	$self->{pval} = $rwin->{pval};
-	$self->{winSta} = $self->{start};
-	#@{$self->{winTr}} = @{$rwin->{tr_cnt}};
-	#@{$self->{winCo}} = @{$rwin->{co_cnt}};
-	$self->{winFC} = $rwin->{logFC};
-	$self->{winP} = $rwin->{pval};
-}
-
-# Expand the genomic coordinates. Replace best window if necessary.
-# Do not retrieve counts and sums to save some computation.
-sub expand{
-	my($self,$gdt,$rwin) = @_;
-	$self->{end} = $rwin->{winN}*$gdt->{step} + $gdt->{winSize};	# new region end.
-	$self->{siteCenter} = ($self->{start} + $self->{end}) /2;
-	# Invalidate previous diff results.
-	$self->reset_content(1);	# reset everything but keep direction.
-#	$self->{tr_cnt} = [];
-#	$self->{co_cnt} = [];
-#	$self->{rsumTr} = undef;
-#	$self->{rsumCo} = undef;
-#	$self->{logFC} = undef;
-	# Replace best window if necessary.
-    if($rwin->{pval} < $self->{winP}){
-    	$self->{winSta} = $rwin->{winN}*$gdt->{step} + 1;
-    	#@{$self->{winTr}} = @{$rwin->{tr_cnt}};
-    	#@{$self->{winCo}} = @{$rwin->{co_cnt}};
-    	$self->{winFC} = $rwin->{logFC};
-    	$self->{winP} = $rwin->{pval};
-    }
-}
-
-# Print a formatted record of the current region. Do nothing if the P-val is not defined.
-sub print_reg{
-	my($self,$gdt,$h) = @_;
-    if(defined $self->{pval}){
-    	# Concatenate treatment and control counts for output.
-    	my @tr_cnt_fmt = fprecision(2, @{$self->{tr_cnt}});
-    	my @co_cnt_fmt = fprecision(2, @{$self->{co_cnt}});
-    	my $tr_cnt_str = join(';', @tr_cnt_fmt);
-    	my $co_cnt_str = join(';', @co_cnt_fmt);
-		my($tr_bkg_enr, $co_bkg_enr);
-		if($gdt->{bkgEnr}){
-			my $btr_m = mean(@{$self->{btr_cnt}});
-			my $bco_m = mean(@{$self->{bco_cnt}});
-			$tr_bkg_enr = $btr_m > 0? fprecision(2, mean(@{$self->{tr_cnt_}}) / $btr_m) : INFINITE;
-			$co_bkg_enr = $bco_m > 0? fprecision(2, mean(@{$self->{co_cnt_}}) / $bco_m) : INFINITE;
-		}else{
-			$tr_bkg_enr = 'NA';
-			$co_bkg_enr = 'NA';
-		}
-    	# Output: chrom,start,end,length,(treatment read count),(control read count),direction,logFC,pval,padj,
-    	# (window start),(window end),(window logFC),(window pval),(window padj).
-    	print $h join("\t", ($self->{chrom},
-        	$self->{start}, $self->{end}, $self->{end}-$self->{start}+1,	# region coordinates.
-        	$tr_cnt_str, $co_cnt_str,	# formatted read counts.
-			fprecision(2, &mean(@{$self->{tr_cnt}})), fprecision(2, &mean(@{$self->{co_cnt}})),	# avg read count.
-			$tr_bkg_enr, $co_bkg_enr,	# enrichment vs. background.
-        	$self->{dirn}, fprecision(2,$self->{logFC}), # change direction and logFC.
-    		$self->{pval}, $self->{padj},	# diff analysis info.
-        	$self->{winSta}, $self->{winSta}+$gdt->{winSize}-1,	# best window coordinates.
-        	fprecision(2,$self->{winFC}), 
-    		$self->{winP}, $self->{winQ})), "\n";	# best window diff info.
-    }
-}
-
-# Do we need to perform stat test for the region?
-# If the region contains only one window, this is already done.
-sub needStat{
-	my $self = shift;
-	return (defined($self->{winP}) && !defined($self->{pval}));
-}
-
-# Retrieve normalized read counts for the region. Override parent function.
-sub retrieve_norm_cnt{
-	my($self,$gdt) = @_;
-	my @atr_cnt;	# array treatment counts.
-	my $i = 0;	# iterator for normalization constants.
-	foreach my $b(@{$gdt->{bedTr}}) {
-		push @atr_cnt, ($b->get_region_count($self->{chrom}, $self->{start}, $self->{end}) 
-			/ $gdt->{normTr}[$i++]);
-	}
-	my @aco_cnt;	# array control counts.
-	$i = 0;
-	foreach my $b(@{$gdt->{bedCo}}) {
-		push @aco_cnt, ($b->get_region_count($self->{chrom}, $self->{start}, $self->{end}) 
-			/ $gdt->{normCo}[$i++]);
-	}
-	@{$self->{tr_cnt}} = @atr_cnt;
-	@{$self->{co_cnt}} = @aco_cnt;
-	# Retrieve norm count for background if needed.
-	if($gdt->{bkgEnr}){
-		my @atr_cnt_;	# array treatment counts.
-		$i = 0;	# iterator for normalization constants.
-		foreach my $b(@{$gdt->{bedTr}}) {
-			push @atr_cnt_, ($b->get_region_count($self->{chrom}, $self->{start}, $self->{end}) / $gdt->{normTr_}->[$i++]);
-		}
-		@{$self->{tr_cnt_}} = @atr_cnt_;
-		my @aco_cnt_;	# array treatment counts.
-		$i = 0;	# iterator for normalization constants.
-		foreach my $b(@{$gdt->{bedCo}}) {
-			push @aco_cnt_, ($b->get_region_count($self->{chrom}, $self->{start}, $self->{end}) / $gdt->{normCo_}->[$i++]);
-		}
-		@{$self->{co_cnt_}} = @aco_cnt_;
-		if(@{$gdt->{bedBtr}}){
-			my @abtr_cnt;	# array background treatment counts.
-			$i = 0;	# iterator for normalization constants.
-			foreach my $b(@{$gdt->{bedBtr}}) {
-				push @abtr_cnt, ($b->get_region_count($self->{chrom}, $self->{start}, $self->{end}) / $gdt->{normBtr}->[$i++]);
-			}
-			@{$self->{btr_cnt}} = @abtr_cnt;
-		}
-		if(@{$gdt->{bedBco}}){
-			my @abco_cnt;	# array background treatment counts.
-			$i = 0;	# iterator for normalization constants.
-			foreach my $b(@{$gdt->{bedBco}}) {
-				push @abco_cnt, ($b->get_region_count($self->{chrom}, $self->{start}, $self->{end}) / $gdt->{normBco}->[$i++]);
-			}
-			@{$self->{bco_cnt}} = @abco_cnt;
-		}
-		if(@{$self->{btr_cnt}} == 0){
-			@{$self->{btr_cnt}} = @{$self->{bco_cnt}};
-		}
-		if(@{$self->{bco_cnt}} == 0){
-			@{$self->{bco_cnt}} = @{$self->{btr_cnt}};
-		}
-	}
-}
-
-# Retrieve sum of raw read counts for the region. Override parent function.
-sub retrieve_raw_sum{
-	my($self,$gdt) = @_;
-	$self->{rsumTr} = 0;
-	foreach my $b(@{$gdt->{bedTr}}) {
-		$self->{rsumTr} += $b->get_region_count($self->{chrom}, $self->{start}, $self->{end});
-	}
-	$self->{rsumCo} = 0;
-	foreach my $b(@{$gdt->{bedCo}}) {
-		$self->{rsumCo} += $b->get_region_count($self->{chrom}, $self->{start}, $self->{end});
-	}
-}
-
-# Determine whether a window is within gap.
-sub isWithinGap{
-	my($self,$gdt,$rwin) = @_;
-	return 0 if !defined $self->{chrom};
-	my $winSta = $rwin->{winN}*$gdt->{step}+1;
-	return ($winSta - $self->{end}-1 <= $gdt->{gap} and $rwin->{dirn} eq $self->{dirn});
-}
-
 
 # Class for managing a list of significant regions: add, adjust P-values, output.
 package diffReps::RegionList;
@@ -718,14 +719,16 @@ __END__
 =head1 NAME
 
 diffReps::SlideWindow - class to deal with a sliding window.
+
 diffReps::ChromaModSite - class to deal with chromatin modification site, inherited from SlideWindow.
+
 diffReps::RegionList - class for a list of modification regions.
 
 =head1 SYNOPSIS
 
-  slideWindow = new diffReps::SlideWindow;
-  site = new diffReps::ChromaModSite;
-  regList = new diffReps::RegionList;
+  my $slideWindow = new diffReps::SlideWindow;
+  my $site = new diffReps::ChromaModSite;
+  my $regList = new diffReps::RegionList;
 
 =head1 DESCRIPTION
 
@@ -735,29 +738,28 @@ information.
 
 =head2 EXPORT
 
-None by default.
+None. This is OO designed.
 
 
 
 =head1 SEE ALSO
 
-MyShortRead::SRBed
+diffReps::DiffRes
 
-If you have a mailing list set up for your module, mention it here.
+Mailing list: https://groups.google.com/forum/#!forum/diffreps-discuss
 
-If you have a web site set up for your module, mention it here.
+Web site: https://code.google.com/p/diffreps/
+
 
 =head1 AUTHOR
 
-Li Shen, E<lt>li.shen@mssm.eduE<gt>
+Li Shen, E<lt>shenli.sam@gmail.comE<gt>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2011 by Li Shen
+Copyright (C) 2010-2013 by Li Shen
 
-This library is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself, either Perl version 5.8.8 or,
-at your option, any later version of Perl 5 you may have available.
+diffReps goes under GNU GPL v3: http://www.gnu.org/licenses/gpl.html
 
 
 =cut

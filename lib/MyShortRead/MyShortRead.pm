@@ -33,7 +33,7 @@ our %EXPORT_TAGS = ( 'all' => [ qw(
 
 our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 
-our @EXPORT = qw(compare2 find_lowest_list overlap2 strGCPercent bin_genome_count bin_genome_count_direction read_chrlen_tbl read_chrlen_ordered sep_chrom_bed del_chrfile order_chr);
+our @EXPORT = qw(compare2 overlap2 strGCPercent bin_genome_count bin_genome_count_direction read_chrlen_tbl read_chrlen_ordered sep_chrom_bed del_chrfile order_chr);
 
 our $VERSION = '1.00';
 
@@ -296,7 +296,9 @@ sub sep_chrom_bed{
 
 # Delete all separated chromosome files.
 sub del_chrfile{
-	foreach my $file(@_) {`rm -f $file`;}
+	foreach my $file(@_) {
+		unlink $file or warn "Cannot delete $file: $!\n";
+	}
 }
 
 1;
@@ -312,17 +314,16 @@ MyShortRead::MyShortRead - My Perl library to deal with nextgen short read data.
 
   use MyShortRead::MyShortRead;
 
-  compare2
-  find_lowest_list
-  overlap2
-  strGCPercent
-  bin_genome_count
-  bin_genome_count_direction
-  read_chrlen_tbl
-  read_chrlen_ordered
-  sep_chrom_bed
-  del_chrfile
-  order_chr
+  my $compare_res = &compare2($interval_a, $interval_b, $compare_by);
+  my $boolean = &overlap2(\@interval1, \@interval2);
+  my $GC_percent = &strGCPercent($DNA_seq);
+  &bin_genome_count($bedfile, $bin_size, $chrom_len, $fragsize, \@bin_vector);
+  &bin_genome_count_direction($bedfile, $bin_size, $chrom_len, $fragsize, \@bin_vector);
+  my %chrom_tbl = &read_chrlen_tbl($chrom_filename);
+  my @chrom_list = &read_chrlen_ordered($chrom_filename);
+  my ($n_reads, $ref_hash_chrom_sepFileName) = &sep_chrom_bed($bedfile, @chrom_name);
+  &del_chrfile(@chrom_sepFiles);
+  my $compare_res = &order_chr($chrom_name_a, $chrom_name_b);
 
 =head1 DESCRIPTION
 
@@ -334,7 +335,6 @@ MyShortRead::MyShortRead - My Perl library to deal with nextgen short read data.
 =head2 EXPORT
 
   compare2
-  find_lowest_list
   overlap2
   strGCPercent
   bin_genome_count
@@ -349,20 +349,19 @@ MyShortRead::MyShortRead - My Perl library to deal with nextgen short read data.
 
 =head1 SEE ALSO
 
-  Nothing else so far.
+MyShortRead::ChromBed
+MyShortRead::SRBed
 
 
 =head1 AUTHOR
 
-Li Shen, E<lt>li.shen@mssm.eduE<gt>
+Li Shen, E<lt>shenli.sam@gmail.comE<gt>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2010 by Li Shen
+Copyright (C) 2010-2013 by Li Shen
 
-This library is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself, either Perl version 5.8.8 or,
-at your option, any later version of Perl 5 you may have available.
+diffReps goes under GNU GPL v3: http://www.gnu.org/licenses/gpl.html
 
 
 =cut

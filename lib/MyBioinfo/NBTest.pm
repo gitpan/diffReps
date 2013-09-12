@@ -207,6 +207,8 @@ MyBioinfo::NBTest - methods to perform negative binomial tests.
 
   use MyBioinfo::NBTest;
 
+  my $pval = &nb_pval($ka, $kb, $mu1, $var1, $mu2, $var2, $eps);  # NB-test p-value.
+
 
 =head1 DESCRIPTION
 
@@ -218,19 +220,18 @@ MyBioinfo::NBTest - methods to perform negative binomial tests.
 
 =head1 SEE ALSO
 
-  Nothing else.
+MyBioinfo::Common
+MyBioinfo::Math
 
 =head1 AUTHOR
 
-Li Shen, E<lt>li.shen@mssm.eduE<gt>
+Li Shen, E<lt>shenli.sam@gmail.comE<gt>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2010 by Li Shen
+Copyright (C) 2010-2013 by Li Shen
 
-This library is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself, either Perl version 5.6.0 or,
-at your option, any later version of Perl 5 you may have available.
+diffReps goes under GNU GPL v3: http://www.gnu.org/licenses/gpl.html
 
 
 =cut
